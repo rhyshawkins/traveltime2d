@@ -1,6 +1,6 @@
 
 CXX ?= g++
-CFLAGS = -c -g -Wall -fPIC
+CFLAGS = -c -g -Wall --std=c++11 -fPIC
 
 AR = ar
 ARFLAGS = -r
