@@ -36,6 +36,84 @@ class TravelTimeNode {
 public:
 
   typedef VelocityField<real> velocity_t;
+
+  struct TravelTimeWeight {
+    int n;
+    TravelTimeNode *neighbors[4];
+    real weight[4];
+    real vl_weight;
+  };
+
+  struct VelocityWeights {
+    VelocityWeights() :
+      s(16),
+      n(0),
+      indices(new int[16]),
+      weights(new real[16]),
+      dirty(true)
+    {
+    }
+
+    ~VelocityWeights()
+    {
+      delete [] indices;
+      delete [] weights;
+    }
+
+    void reset()
+    {
+      n = 0;
+      dirty = true;
+    }
+    
+    void add(int idx, real w)
+    {
+      for (int i = 0; i < n; i ++) {
+	if (indices[i] == idx) {
+	  weights[i] += w;
+	  return;
+	}
+      }
+
+      if (n == s) {
+	int news = s*2;
+	int *newindices = new int[news];
+	real *newweights = new real[news];
+
+	for (int i = 0; i < n; i ++) {
+	  newindices[i] = indices[i];
+	  newweights[i] = weights[i];
+	}
+
+	delete [] indices;
+	delete [] weights;
+
+	indices = newindices;
+	weights = weights;
+
+	s = news;
+      }
+      
+      indices[n] = idx;
+      weights[n] = w;
+      n ++;
+    }
+
+    void merge(const struct VelocityWeights &vw,
+	       real w)
+    {
+      for (int i = 0; i < vw.n; i ++) {
+	add(vw.indices[i], vw.weights[i] * w);
+      }
+    }
+
+    int s;
+    int n;
+    int *indices;
+    real *weights;
+
+    bool dirty;
+  };
   
   static constexpr real INVALID_T = -1.0;
   
@@ -94,6 +172,20 @@ public:
       vf.dump(stderr);
       throw TRAVELTIMEEXCEPTION("Invalid velocity: %f", V);
     }
+
+    weight.n = 0;
+    weight.vl_weight = 0.0;
+
+    vweights.reset();
+
+    vweights.n = 4;
+    vf.lerp_weights(nx, ny,
+		    vweights.indices[0], vweights.weights[0],
+		    vweights.indices[1], vweights.weights[1],
+		    vweights.indices[2], vweights.weights[2],
+		    vweights.indices[3], vweights.weights[3]);
+
+    
   }
 
   void set_order(int o)
@@ -141,44 +233,79 @@ public:
     // Initialize a fixed velocity node
     //
     T = distkm/V;
+
+    weight.n = 0;
+    weight.vl_weight = -distkm/(V*V);
+    
     state = STATE_FIXED;
   }
 
   real computeTdirectionderivative(TravelTimeNode *h1,
 				   TravelTimeNode *h2,
-				   const real &dist)
+				   const real &dist,
+				   TravelTimeWeight &weight)
   {
     if (h2 == nullptr || firstorder) {
+      weight.n = 1;
+      weight.neighbors[0] = h1;
+      weight.weight[0] = 1.0;
+      weight.vl_weight = -dist/(V*V);
+      
       return h1->T + dist/V;
+      
     } else {
       real T = ((4.0*h1->T - h2->T) + 2.0*dist/V)/3.0;
+
       if (T < h1->T) {
+	weight.n = 1;
+	weight.neighbors[0] = h1;
+	weight.weight[0] = 1.0;
+	weight.vl_weight = -dist/(V*V);
+
 	T = h1->T + dist/V;
+
+      } else {
+	weight.n = 2;
+
+	weight.neighbors[0] = h1;
+	weight.weight[0] = 4.0/3.0;
+
+	weight.neighbors[1] = h2;
+	weight.weight[1] = -1.0/3.0;
+	
+	weight.vl_weight = -2.0*dist/(3.0*V*V);
       }
+      
       return T;
     }
   }
 
   real computeTdualderivative(TravelTimeNode *h1, TravelTimeNode *h2, const real &hdist,
-			      TravelTimeNode *v1, TravelTimeNode *v2, const real &vdist)
+			      TravelTimeNode *v1, TravelTimeNode *v2, const real &vdist,
+			      TravelTimeWeight &weight)
   {
     real Tx, Dx;
     real Ty, Dy;
+    bool dualx, dualy;
 
     if (firstorder || h2 == nullptr) {
       Tx = h1->T;
       Dx = hdist;
+      dualx = false;
     } else {
       Tx = (4.0*h1->T - h2->T)/3.0;
       Dx = 2.0*hdist/3.0;
+      dualx = true;
     }
 
     if (firstorder || v2 == nullptr) {
       Ty = v1->T;
       Dy = vdist;
+      dualy = false;
     } else {
       Ty = (4.0*v1->T - v2->T)/3.0;
       Dy = 2.0*vdist/3.0;
+      dualy = true;
     }
 
     real Dx2 = Dx*Dx;
@@ -193,16 +320,22 @@ public:
     
     if (Tb < 0.0) {
       if (Ta < 0.0) {
+	TravelTimeWeight weightA, weightB;
+	
 	Ta = computeTdirectionderivative(h1,
 					 h2,
-					 hdist);
+					 hdist,
+					 weightA);
 	Tb = computeTdirectionderivative(v1,
 					 v2,
-					 vdist);
+					 vdist,
+					 weightB);
 	
 	if (Ta < Tb) {
+	  weight = weightA;
 	  return Ta;
 	} else {
+	  weight = weightB;
 	  return Tb;
 	}
 	
@@ -230,17 +363,23 @@ public:
 	// Numerical precision can mean that causaility fails for uniform velocity fields
 	// so revert to best orthogonal travel time in this case.
 	//
+	TravelTimeWeight weightA, weightB;
+
 	Ta = computeTdirectionderivative(h1,
 					 h2,
-					 hdist);
+					 hdist,
+					 weightA);
 	
 	Tb = computeTdirectionderivative(v1,
 					 v2,
-					 vdist);
+					 vdist,
+					 weightB);
 	
 	if (Ta < Tb) {
+	  weight = weightA;
 	  return Ta;
 	} else {
+	  weight = weightB;
 	  return Tb;
 	}
 	
@@ -252,12 +391,120 @@ public:
 	// 			    V);
 	
       }
+
+      real denominator = 2.0*(Tb * (1.0/Dx2 + 1.0/Dy2)) - 2.0*((Tx/Dx2 + Ty/Dy2));
+      real wh = (2.0*(Tb - Tx)/Dx2)/denominator;
+      real wv = (2.0*(Tb - Ty)/Dy2)/denominator;
+
+      if (dualx) {
+	weight.neighbors[0] = h1;
+	weight.neighbors[1] = h2;
+
+	weight.weight[0] = wh * 4.0/3.0;
+	weight.weight[1] = -wh/3.0;
+
+	if (dualy) {
+
+	  weight.neighbors[2] = v1;
+	  weight.neighbors[3] = v2;
+	  
+	  weight.weight[2] = wv * 4.0/3.0;
+	  weight.weight[3] = -wv/3.0;
+
+	  weight.n = 4;
+	  
+	} else {
+	  weight.neighbors[2] = v1;
+	  weight.weight[2] = wv;
+	  weight.n = 3;
+	}
+	
+      } else {
+	
+	weight.neighbors[0] = h1;
+	weight.weight[0] = wh;
+
+	if (dualy) {
+
+	  weight.neighbors[1] = v1;
+	  weight.neighbors[2] = v2;
+	  
+	  weight.weight[1] = wv * 4.0/3.0;
+	  weight.weight[2] = -wv/3.0;
+
+	  weight.n = 3;
+	  
+	} else {
+	  
+	  weight.neighbors[1] = v1;
+	  weight.weight[1] = wv;
+	  weight.n = 2;
+	  
+	}
+	
+      }
+
+      weight.vl_weight = (-2.0/(V*V*V))/denominator;
       
       return Tb;
       
     } else {
       
       // Choose smallest (Ta always less than Tb)
+      real denominator = 2.0*(Ta * (1.0/Dx2 + 1.0/Dy2)) - 2.0*((Tx/Dx2 + Ty/Dy2));
+      real wh = (2.0*(Ta - Tx)/Dx2)/denominator;
+      real wv = (2.0*(Ta - Ty)/Dy2)/denominator;
+
+      if (dualx) {
+	weight.neighbors[0] = h1;
+	weight.neighbors[1] = h2;
+
+	weight.weight[0] = wh * 4.0/3.0;
+	weight.weight[1] = -wh/3.0;
+
+	if (dualy) {
+
+	  weight.neighbors[2] = v1;
+	  weight.neighbors[3] = v2;
+	  
+	  weight.weight[2] = wv * 4.0/3.0;
+	  weight.weight[3] = -wv/3.0;
+
+	  weight.n = 4;
+	  
+	} else {
+	  weight.neighbors[2] = v1;
+	  weight.weight[2] = wv;
+	  weight.n = 3;
+	}
+	
+      } else {
+	
+	weight.neighbors[0] = h1;
+	weight.weight[0] = wh;
+
+	if (dualy) {
+
+	  weight.neighbors[1] = v1;
+	  weight.neighbors[2] = v2;
+	  
+	  weight.weight[1] = wv * 4.0/3.0;
+	  weight.weight[2] = -wv/3.0;
+
+	  weight.n = 3;
+	  
+	} else {
+	  
+	  weight.neighbors[1] = v1;
+	  weight.weight[1] = wv;
+	  weight.n = 2;
+	  
+	}
+	
+      }
+
+      weight.vl_weight = (-2.0/(V*V*V))/denominator;
+      
       return Ta;
       
     }
@@ -353,104 +600,22 @@ public:
     if (horizontal && vertical) {
 
       return computeTdualderivative(horizontal, horizontal_second, hdist,
-				    vertical, vertical_second, vdist);
-
-      real Ta, Tb;
-      //
-      // Solve quadratic
-      //
-
-      
-      solve_quadratic(vdist*vdist + hdist*hdist,
-		      -2.0 * (vdist*vdist * horizontal->T + hdist*hdist * vertical->T),
-		      vdist*vdist * horizontal->T*horizontal->T +
-		      hdist*hdist * vertical->T*vertical->T -
-		      (hdist*hdist*vdist*vdist)/(V*V),
-		      Ta, Tb);
-
-      // printf("%f %f %f %f: %f %f\n", horizontal->T, hdist, vertical->T, vdist, Ta, Tb);
-      
-      if (Tb < 0.0) {
-	if (Ta < 0.0) {
-	  Ta = computeTdirectionderivative(horizontal,
-					   horizontal_second,
-					   hdist);
-	  Tb = computeTdirectionderivative(vertical,
-					   vertical_second,
-					   vdist);
-
-	  if (Ta < Tb) {
-	    return Ta;
-	  } else {
-	    return Tb;
-	  }
-	} else {
-	  if (Ta < horizontal->T && Ta < vertical->T) {
-	    throw TRAVELTIMEEXCEPTION("Causality violated %f %f (%f %f) (%f %f) %f", Ta, Tb,
-				      horizontal->T, vertical->T,
-				      hdist, vdist,
-				      V);
-	    
-	  }
-	  
-	  return Ta;
-	}
-      }
-
-      //
-      // Two solutions Ta will be less that Tb always
-      //
-      if (Ta < horizontal->T || Ta < vertical->T) {
-	
-	if (Tb < horizontal->T || Tb < vertical->T) {
-
-	  //
-	  // Numerical precision can mean that causaility fails for uniform velocity fields
-	  // so revert to best orthogonal travel time in this case.
-	  //
-	  Ta = computeTdirectionderivative(horizontal,
-					   horizontal_second,
-					   hdist);
-
-	  Tb = computeTdirectionderivative(vertical,
-					   vertical_second,
-					   vdist);
-
-	  if (Ta < Tb) {
-	    return Ta;
-	  } else {
-	    return Tb;
-	  }
-
-	  // throw TRAVELTIMEEXCEPTION("Causality violated %f %f (%f %f %g %g %g %g) (%f %f) %f", Ta, Tb,
-	  // 			    horizontal->T, vertical->T,
-	  // 			    Ta - horizontal->T, Ta - vertical->T,
-	  // 			    Tb - horizontal->T, Tb - vertical->T,
-	  // 			    hdist, vdist,
-	  // 			    V);
-
-	}
-
-	return Tb;
-
-      } else {
-
-	// Choose smallest (Ta always less than Tb)
-	return Ta;
-
-      }
+				    vertical, vertical_second, vdist,
+				    weight);
 
     } else if (horizontal) {
 
       return computeTdirectionderivative(horizontal,
 					 horizontal_second,
-					 hdist);
+					 hdist,
+					 weight);
 
     } else if (vertical) {
 
       return computeTdirectionderivative(vertical,
 					 vertical_second,
-					 vdist);
+					 vdist,
+					 weight);
 
     } else {
 
@@ -479,12 +644,36 @@ public:
     }      
   }
 
+  void back_project()
+  {
+    if (vweights.dirty) {
+
+      for (int i = 0; i < 4; i ++) {
+	vweights.weights[i] *= weight.vl_weight;
+      }
+
+      for (int i = 0; i < weight.n; i ++) {
+
+	weight.neighbors[i]->back_project();
+
+	vweights.merge(weight.neighbors[i]->vweights,
+		       weight.weight[i]);
+
+      }
+
+      vweights.dirty = false;
+    }
+  }
+  
   double nx, ny;
   state_t state;
   int order;
   bool dirty;
   real T;
   real V;
+
+  TravelTimeWeight weight;
+  VelocityWeights vweights;
   
   Neighbor neighbors[4];
 

@@ -77,6 +77,35 @@ public:
     return (1.0 - alphay)*top + alphay * bot;
   }
 
+  void lerp_weights(double nx, double ny,
+		    int &i1, real &w1,
+		    int &i2, real &w2,
+		    int &i3, real &w3,
+		    int &i4, real &w4) const
+  {
+    int ix;
+    double alphax;
+
+    clamped_interpolation_coordinates(nx, dx, width, ix, alphax);
+
+    int iy;
+    double alphay;
+
+    clamped_interpolation_coordinates(ny, dy, height, iy, alphay);
+
+    i1 = iy * width + ix;
+    w1 = (1.0 - alphax) * (1.0 - alphay);
+
+    i2 = iy * width + ix + 1;
+    w2 = (alphax) * (1.0 - alphay);
+
+    i3 = (iy + 1) * width + ix;
+    w3 = (1.0 - alphax) * alphay;
+
+    i4 = (iy + 1) * width + ix + 1;
+    w4 = alphax * alphay;
+  }
+  
   void clamped_interpolation_coordinates(double nx, double dx, size_t sizex, int &ix, double &alphax) const
   {
     ix = (int)((double)sizex * (nx - dx/2.0));

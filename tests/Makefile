@@ -4,14 +4,15 @@ INCLUDES = -I..
 CXX = g++
 CXXFLAGS = -c -g -Wall -std=c++11 $(INCLUDES)
 
-LIBS = -lgtest -L.. -ltraveltime2d
+LIBS = -lgtest -L.. -ltraveltime2d -lpthread
 
 TARGETS = velocityfield_tests \
 	coordinate_tests \
 	traveltimefield_tests \
 	iceland_traveltime_tests \
 	subfield_tests \
-	pseudopath_tests
+	pseudopath_tests \
+	gradient_tests
 
 
 all : $(TARGETS)
@@ -28,6 +29,9 @@ coordinate_tests.o : ../coordinate.hpp
 
 traveltimefield_tests : traveltimefield_tests.o
 	$(CXX) -o traveltimefield_tests traveltimefield_tests.o $(LIBS)
+
+gradient_tests : gradient_tests.o
+	$(CXX) -o gradient_tests gradient_tests.o $(LIBS)
 
 pseudopath_tests : pseudopath_tests.o
 	$(CXX) -o pseudopath_tests pseudopath_tests.o $(LIBS)
