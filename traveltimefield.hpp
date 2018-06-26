@@ -287,6 +287,40 @@ public:
     return (1.0 - beta)*ta + beta*tb;
   }
 
+  real get_traveltime_weighted(const coordinate &c, VelocityWeights<real> &weights)
+  {
+    double hnx, hny;
+
+    coordinate::normalized_coordinate(cmin, cmax, c, hnx, hny);
+
+    int ix = (int)((hnx - nminx)/(nmaxx - nminx) * (real)(width - 1));
+    
+    real alpha = (hnx - (nminx + (real)ix*dx))/dx;
+
+    int iy = (int)((hny - nminy)/(nmaxy - nminy) * (real)(height - 1));
+    real beta = (hny - (nminy + (real)iy*dy))/dy;
+
+    weights.reset();
+
+    
+    real ta = (1.0 - alpha)*nodes[iy*width + ix].T + alpha*nodes[iy*width + ix + 1].T;
+    real tb = (1.0 - alpha)*nodes[(iy + 1)*width + ix].T + alpha*nodes[(iy + 1)*width + ix + 1].T;
+
+    nodes[iy*width + ix].back_project();
+    weights.merge(nodes[iy*width + ix].vweights, (1.0 - alpha) * (1.0 - beta));
+    
+    nodes[iy*width + ix + 1].back_project();
+    weights.merge(nodes[iy*width + ix + 1].vweights, (alpha) * (1.0 - beta));
+
+    nodes[(iy + 1)*width + ix].back_project();
+    weights.merge(nodes[(iy + 1)*width + ix].vweights, (1.0 - alpha) * (beta));
+
+    nodes[(iy + 1)*width + ix + 1].back_project();
+    weights.merge(nodes[(iy * 1)*width + ix + 1].vweights, (alpha) * (beta));
+
+    return (1.0 - beta)*ta + beta*tb;
+  }
+
   real get_traveltime_cubic(const coordinate &c)
   {
     double hnx, hny;
@@ -338,11 +372,18 @@ public:
     a3 = z1;
 
     return
-      a0 * alpha*alpha*alpha +
-      a1 * alpha*alpha +
-      a2 * alpha +
-      a3;
+      a3 + alpha*(a2 + alpha*(a1 + alpha*a0));
+      // a0 * alpha*alpha*alpha +
+      // a1 * alpha*alpha +
+      // a2 * alpha +
+      // a3;
   }
+
+  static real cerp_weights(real z0, real z1, real z2, real z3, real alpha,
+			   real &w0, real &w1, real &w2, real &w3)
+  {
+  }
+  
 
   bool save_traveltime_field(const char *filename)
   {
