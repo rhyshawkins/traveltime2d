@@ -4,6 +4,8 @@ INCLUDES = -I..
 CXX = g++
 CXXFLAGS = -c -g -Wall -std=c++11 $(INCLUDES)
 
+CXXFLAGS += -O3
+
 LIBS = -lgtest -L.. -ltraveltime2d -lpthread
 
 TARGETS = velocityfield_tests \

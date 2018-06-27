@@ -41,7 +41,7 @@ template
 class TravelTimeField {
 public:
 
-  typedef TravelTimeNode<real> node_t;
+  typedef TravelTimeNode<coordinate, real> node_t;
   typedef VelocityField<real> velocity_t;
 
   static constexpr real LARGE_T = 1.0e12;
@@ -306,16 +306,16 @@ public:
     real ta = (1.0 - alpha)*nodes[iy*width + ix].T + alpha*nodes[iy*width + ix + 1].T;
     real tb = (1.0 - alpha)*nodes[(iy + 1)*width + ix].T + alpha*nodes[(iy + 1)*width + ix + 1].T;
 
-    nodes[iy*width + ix].back_project();
+    nodes[iy*width + ix].back_project(this);
     weights.merge(nodes[iy*width + ix].vweights, (1.0 - alpha) * (1.0 - beta));
     
-    nodes[iy*width + ix + 1].back_project();
+    nodes[iy*width + ix + 1].back_project(this);
     weights.merge(nodes[iy*width + ix + 1].vweights, (alpha) * (1.0 - beta));
 
-    nodes[(iy + 1)*width + ix].back_project();
+    nodes[(iy + 1)*width + ix].back_project(this);
     weights.merge(nodes[(iy + 1)*width + ix].vweights, (1.0 - alpha) * (beta));
 
-    nodes[(iy + 1)*width + ix + 1].back_project();
+    nodes[(iy + 1)*width + ix + 1].back_project(this);
     weights.merge(nodes[(iy * 1)*width + ix + 1].vweights, (alpha) * (beta));
 
     return (1.0 - beta)*ta + beta*tb;
@@ -478,7 +478,8 @@ public:
       // Fix nodes with computed child nodes
       //
       for (auto &s : subnodemappings) {
-	nodes[s.first].initializeT(subtraveltime->nodes[s.second].T);
+	nodes[s.first].initializeT(subtraveltime->nodes[s.second].T,
+				   &subtraveltime->nodes[s.second]);
 	// printf("%d %10.6f %p %d\n", s.first, nodes[s.first].T, &nodes[s.first], &nodes[s.first] - nodes);
       }
 
@@ -621,7 +622,7 @@ public:
   //
   // Near is a ordered circular buffer
   //
-  CircularBuffer<real> near;
+  CircularBuffer<coordinate, real> near;
   node_t *dirty[DIRTY_SIZE];
   size_t dirty_count;
 

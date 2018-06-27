@@ -24,6 +24,7 @@
 #define subfield_hpp
 
 #include "traveltimeexception.hpp"
+#include "velocityweights.hpp"
 
 template
 <
@@ -121,6 +122,8 @@ public:
     virtual real interpolate(const real *source) const = 0;
 
     virtual void dump_source() const = 0;
+
+    virtual void backproject_remap(VelocityWeights<real> &vw, real weight) = 0;
   };
 
   class single_interpolant : public interpolant {
@@ -142,6 +145,11 @@ public:
     {
       printf("Single: %d\n", i);
     }
+
+    virtual void backproject_remap(VelocityWeights<real> &vw, real weight)
+    {
+      vw.add(i, weight);
+    }
     
     int i;
   };
@@ -162,6 +170,12 @@ public:
     virtual void dump_source() const
     {
       printf("Linear: %d %d\n", i, j);
+    }
+
+    virtual void backproject_remap(VelocityWeights<real> &vw, real weight)
+    {
+      vw.add(i, weight/2.0);
+      vw.add(j, weight/2.0);
     }
 
     int i;
@@ -187,6 +201,15 @@ public:
     {
       printf("Bilinear: %d %d %d %d\n", i, j, k, l);
     }
+
+    virtual void backproject_remap(VelocityWeights<real> &vw, real weight)
+    {
+      vw.add(i, weight/4.0);
+      vw.add(j, weight/4.0);
+      vw.add(k, weight/4.0);
+      vw.add(l, weight/4.0);
+    }
+
     int i;
     int j;
     int k;

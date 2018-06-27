@@ -31,6 +31,13 @@
 
 template
 <
+  typename coordinate,
+  typename real
+> class TravelTimeField;
+
+template
+<
+  typename coordinate,
   typename real
 >
 class TravelTimeNode {
@@ -43,6 +50,8 @@ public:
     TravelTimeNode *neighbors[4];
     real weight[4];
     real vl_weight;
+
+    TravelTimeNode *linked_node;
   };
 
   static constexpr real INVALID_T = -1.0;
@@ -105,6 +114,7 @@ public:
 
     weight.n = 0;
     weight.vl_weight = 0.0;
+    weight.linked_node = nullptr;
 
     vweights.reset();
 
@@ -148,12 +158,15 @@ public:
     other.neighbors[NEIGHBOR_RIGHT] = Neighbor(*this, distkm);
   }
 
-  void initializeT(double _T)
+  void initializeT(double _T,
+		   TravelTimeNode *_node)
   {
     //
     // Initialize a fixed velocity node
     //
     T = _T;
+    weight.linked_node = _node;
+
     state = STATE_FIXED;
   }
 
@@ -166,6 +179,7 @@ public:
 
     weight.n = 0;
     weight.vl_weight = -distkm/(V*V);
+    weight.linked_node = nullptr;
     
     state = STATE_FIXED;
   }
@@ -574,23 +588,45 @@ public:
     }      
   }
 
-  void back_project()
+  void back_project(TravelTimeField<coordinate, real> *parent)
   {
     if (vweights.dirty) {
 
-      for (int i = 0; i < 4; i ++) {
-	vweights.weights[i] *= weight.vl_weight;
+      if (weight.linked_node == nullptr) {
+	
+	for (int i = 0; i < 4; i ++) {
+	  vweights.weights[i] *= weight.vl_weight;
+	}
+	
+	for (int i = 0; i < weight.n; i ++) {
+	  
+	  weight.neighbors[i]->back_project(parent);
+	  
+	  vweights.merge(weight.neighbors[i]->vweights,
+			 weight.weight[i]);
+	  
+	}
+
+      } else {
+
+	weight.linked_node->back_project(parent->subtraveltime);
+
+	//
+	// Remap weights from sub field to proper indices into
+	// image
+	//
+
+	vweights.n = 0;
+	
+	for (int i = 0; i < weight.linked_node->vweights.n; i ++) {
+
+	  auto it = parent->subfield->interpolators[weight.linked_node->vweights.indices[i]];
+
+	  it->backproject_remap(vweights,
+				weight.linked_node->vweights.weights[i]);
+	}
       }
-
-      for (int i = 0; i < weight.n; i ++) {
-
-	weight.neighbors[i]->back_project();
-
-	vweights.merge(weight.neighbors[i]->vweights,
-		       weight.weight[i]);
-
-      }
-
+      
       vweights.dirty = false;
     }
   }
@@ -603,7 +639,7 @@ public:
   real V;
 
   TravelTimeWeight weight;
-  VelocityWeights vweights;
+  VelocityWeights<real> vweights;
   
   Neighbor neighbors[4];
 

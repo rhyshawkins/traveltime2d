@@ -32,7 +32,7 @@ TEST(TravelTimeFieldSuite, SmallHomogenous) {
     for (int j = 0; j < 4; j ++) {
 
       int o = i * 4 + j;
-      EXPECT_EQ(tt.nodes[o].state, TravelTimeNode<double>::STATE_FIXED);
+      EXPECT_EQ(tt.nodes[o].state, (TravelTimeNode<CartesianKm, double>::STATE_FIXED));
 
       EXPECT_EQ(tt.nodes[o].nx, (1.5 * j)/3.0 - 0.25);
       EXPECT_EQ(tt.nodes[o].ny, (1.5 * i)/3.0 - 0.25);
@@ -293,7 +293,7 @@ TEST(TravelTimeFieldSuite, MediumHomogenousRefinement1)
     for (int j = 0; j < HEIGHT; j ++) {
 
       int o = i * WIDTH + j;
-      EXPECT_EQ(tt.nodes[o].state, TravelTimeNode<double>::STATE_FIXED);
+      EXPECT_EQ(tt.nodes[o].state, (TravelTimeNode<CartesianKm, double>::STATE_FIXED));
     }
   }
 }

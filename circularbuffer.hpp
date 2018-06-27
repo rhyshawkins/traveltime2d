@@ -29,12 +29,13 @@
 
 template
 <
+  typename coordinate, 
   typename real
 >
 class CircularBuffer {
 public:
 
-  typedef TravelTimeNode<real> node_t;
+  typedef TravelTimeNode<coordinate, real> node_t;
 
   CircularBuffer(size_t maxnodes) :
     size(maxnodes),
