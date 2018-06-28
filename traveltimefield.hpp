@@ -437,7 +437,7 @@ public:
       int bl, br, tl, tr;
 
       find_enclosing_nodes(hypo, bl, br, tl, tr);
-      
+      printf("Enclosing: %d %d %d %d (%d %d)\n", bl, br, tl, tr, (int)width, (int)height);
       nodes[bl].initializeT(velocity,
 			    coordinate::distance_km(hypo,
 						    coordinate::from_normalized_coordinate(cmin, cmax,
