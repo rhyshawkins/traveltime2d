@@ -35,6 +35,9 @@ public:
 #ifdef VW_USE_ORDERED
   void add(int idx, real w)
   {
+    // if (idx == 8255 || idx == 8256) {
+    //   printf("Adding: %5d %10.6f\n", idx, w);
+    // }
     if (n == 0 || indices[n - 1] < idx) {
       //
       // Append
@@ -107,6 +110,11 @@ public:
 	//
 	// Append
 	//
+
+	// if (vw.indices[j] == 8255) {
+	//   printf("Merging: %5d %10.6f (%10.6f %10.6f)\n", vw.indices[j], vw.weights[j] * w, vw.weights[j], w);
+	// }
+      
 	resize(n + 1);
 	indices[n] = vw.indices[j];
 	weights[n] = w * vw.weights[j];
@@ -115,6 +123,11 @@ public:
 	j ++;
       } else if (indices[i] == vw.indices[j]) {
 	weights[i] += w * vw.weights[j];
+
+	// if (vw.indices[j] == 8255) {
+	//   printf("Merging: %5d %10.6f -> %10.6f\n", vw.indices[j], vw.weights[j] * w, weights[i]);
+	// }
+      
 	i ++;
 	j ++;
       } else if (indices[i] < vw.indices[j]) {
@@ -123,6 +136,11 @@ public:
 	//
 	// Insert
 	//
+
+	// if (vw.indices[j] == 8255) {
+	//   printf("Merging: %5d %10.6f (%10.6f %10.6f)\n", vw.indices[j], vw.weights[j] * w, vw.weights[j], w);
+	// }
+
 	resize(n + 1);
 	for (int k = n; k > i; k --) {
 	  indices[k] = indices[k - 1];
@@ -158,6 +176,32 @@ public:
       weights[i] = vw.weights[i];
     }
   }
+
+#ifdef VW_USE_ORDERED
+  bool validate()
+  {
+    for (int i = 1; i < n; i ++) {
+      if (indices[i - 1] >= indices[i]) {
+	return false;
+      }
+    }
+
+    return true;
+  }
+#else
+  bool validate()
+  {
+    for (int i = 1; i < n; i ++) {
+      for (int j = 0; j < i; j ++) {
+	if (indices[i] == indices[j]) {
+	  return false;
+	}
+      }
+    }
+
+    return true;
+  }
+#endif     
   
   // {
   //   int i = 0;

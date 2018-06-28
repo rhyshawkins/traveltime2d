@@ -180,6 +180,8 @@ public:
     weight.n = 0;
     weight.vl_weight = -distkm/(V*V);
     weight.linked_node = nullptr;
+
+    // printf("Initial weight: %10.6f\n", weight.vl_weight);
     
     state = STATE_FIXED;
   }
@@ -596,6 +598,9 @@ public:
 	
 	for (int i = 0; i < 4; i ++) {
 	  vweights.weights[i] *= weight.vl_weight;
+	  // if (vweights.indices[i] == 8255) {
+	  //   printf("Setting: %5d %10.6f\n", vweights.indices[i], vweights.weights[i]);
+	  // }
 	}
 	
 	for (int i = 0; i < weight.n; i ++) {
@@ -605,6 +610,10 @@ public:
 	  vweights.merge(weight.neighbors[i]->vweights,
 			 weight.weight[i]);
 	  
+	}
+
+	if (!vweights.validate()) {
+	  throw TRAVELTIMEEXCEPTION("Invalid vweights");
 	}
 
       } else {
