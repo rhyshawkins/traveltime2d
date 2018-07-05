@@ -43,6 +43,8 @@ template
 class TravelTimeNode {
 public:
 
+  static constexpr double WEIGHT_EPSILON = 1.0e-9;
+
   typedef VelocityField<real> velocity_t;
 
   struct TravelTimeWeight {
@@ -118,14 +120,21 @@ public:
 
     vweights.reset();
 
-    vweights.n = 4;
+    int indices[4];
+    double weights[4];
     vf.lerp_weights(nx, ny,
-		    vweights.indices[0], vweights.weights[0],
-		    vweights.indices[1], vweights.weights[1],
-		    vweights.indices[2], vweights.weights[2],
-		    vweights.indices[3], vweights.weights[3]);
+		    indices[0], weights[0],
+		    indices[1], weights[1],
+		    indices[2], weights[2],
+		    indices[3], weights[3]);
 
-    
+    for (int i = 0; i < 4; i ++ ) {
+
+      if (fabs(weights[i]) > WEIGHT_EPSILON) {
+	vweights.add(indices[i], weights[i]);
+      }
+
+    }
   }
 
   void set_order(int o)
@@ -608,7 +617,8 @@ public:
 	  weight.neighbors[i]->back_project(parent);
 	  
 	  vweights.merge(weight.neighbors[i]->vweights,
-			 weight.weight[i]);
+			 weight.weight[i],
+			 WEIGHT_EPSILON);
 	  
 	}
 

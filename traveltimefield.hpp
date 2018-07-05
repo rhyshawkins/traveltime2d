@@ -307,16 +307,24 @@ public:
     real tb = (1.0 - alpha)*nodes[(iy + 1)*width + ix].T + alpha*nodes[(iy + 1)*width + ix + 1].T;
 
     nodes[iy*width + ix].back_project(this);
-    weights.merge(nodes[iy*width + ix].vweights, (1.0 - alpha) * (1.0 - beta));
+    weights.merge(nodes[iy*width + ix].vweights,
+		  (1.0 - alpha) * (1.0 - beta),
+		  node_t::WEIGHT_EPSILON);
     
     nodes[iy*width + ix + 1].back_project(this);
-    weights.merge(nodes[iy*width + ix + 1].vweights, (alpha) * (1.0 - beta));
+    weights.merge(nodes[iy*width + ix + 1].vweights,
+		  (alpha) * (1.0 - beta),
+		  node_t::WEIGHT_EPSILON);
 
     nodes[(iy + 1)*width + ix].back_project(this);
-    weights.merge(nodes[(iy + 1)*width + ix].vweights, (1.0 - alpha) * (beta));
+    weights.merge(nodes[(iy + 1)*width + ix].vweights,
+		  (1.0 - alpha) * (beta),
+		  node_t::WEIGHT_EPSILON);
 
     nodes[(iy + 1)*width + ix + 1].back_project(this);
-    weights.merge(nodes[(iy * 1)*width + ix + 1].vweights, (alpha) * (beta));
+    weights.merge(nodes[(iy * 1)*width + ix + 1].vweights,
+		  (alpha) * (beta),
+		  node_t::WEIGHT_EPSILON);
 
     return (1.0 - beta)*ta + beta*tb;
   }
@@ -437,7 +445,6 @@ public:
       int bl, br, tl, tr;
 
       find_enclosing_nodes(hypo, bl, br, tl, tr);
-      printf("Enclosing: %d %d %d %d (%d %d)\n", bl, br, tl, tr, (int)width, (int)height);
       nodes[bl].initializeT(velocity,
 			    coordinate::distance_km(hypo,
 						    coordinate::from_normalized_coordinate(cmin, cmax,

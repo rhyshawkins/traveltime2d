@@ -99,7 +99,8 @@ public:
 
 #ifdef VW_USE_ORDERED
   void merge(const struct VelocityWeights &vw,
-	     real w)
+	     real w,
+	     real threshold)
   {
     int i = 0;
     int j = 0;
@@ -114,12 +115,17 @@ public:
 	// if (vw.indices[j] == 8255) {
 	//   printf("Merging: %5d %10.6f (%10.6f %10.6f)\n", vw.indices[j], vw.weights[j] * w, vw.weights[j], w);
 	// }
-      
-	resize(n + 1);
-	indices[n] = vw.indices[j];
-	weights[n] = w * vw.weights[j];
-	n ++;
-	i ++;
+
+	real new_weight = w * vw.weights[j];
+
+	if (fabs(new_weight) > threshold) {
+	  resize(n + 1);
+	  indices[n] = vw.indices[j];
+	  weights[n] = new_weight;
+	  n ++;
+	  i ++;
+	}
+
 	j ++;
       } else if (indices[i] == vw.indices[j]) {
 	weights[i] += w * vw.weights[j];
@@ -141,15 +147,20 @@ public:
 	//   printf("Merging: %5d %10.6f (%10.6f %10.6f)\n", vw.indices[j], vw.weights[j] * w, vw.weights[j], w);
 	// }
 
-	resize(n + 1);
-	for (int k = n; k > i; k --) {
-	  indices[k] = indices[k - 1];
-	  weights[k] = weights[k - 1];
+	real new_weight = w * vw.weights[j];
+
+	if (fabs(new_weight) > threshold) {
+	  resize(n + 1);
+	  for (int k = n; k > i; k --) {
+	    indices[k] = indices[k - 1];
+	    weights[k] = weights[k - 1];
+	  }
+	  n ++;
+	  indices[i] = vw.indices[j];
+	  weights[i] = w * vw.weights[j];
+	  i ++;
 	}
-	n ++;
-	indices[i] = vw.indices[j];
-	weights[i] = w * vw.weights[j];
-	i ++;
+	
 	j ++;
       }
     }
