@@ -15,15 +15,8 @@ TARGETS = libtraveltime2d.a
 OBJS = traveltimeexception.o
 
 SRCS = Makefile \
-	circularbuffer.hpp \
-	coordinate.hpp \
-	subfield.hpp \
-	traveltimefield.hpp \
-	traveltimeexception.hpp \
-	traveltimeexception.cpp \
-	traveltimenode.hpp \
-	velocityfield.hpp \
-	velocityfieldref.hpp 
+	$(wildcard *.hpp) \
+	$(wildcard *.cpp)
 
 all : $(TARGETS)
 
