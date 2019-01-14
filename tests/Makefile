@@ -14,7 +14,8 @@ TARGETS = velocityfield_tests \
 	iceland_traveltime_tests \
 	subfield_tests \
 	pseudopath_tests \
-	gradient_tests
+	gradient_tests \
+	anomally_tests
 
 
 all : $(TARGETS)
@@ -46,6 +47,9 @@ iceland_traveltime_tests : iceland_traveltime_tests.o
 iceland_traveltime_tests.o : ../traveltimefield.hpp ../coordinate.hpp ../velocityfield.hpp ../traveltimenode.hpp
 
 subfield_tests : subfield_tests.o
+	$(CXX) -o $@ $< $(LIBS)
+
+anomally_tests : anomally_tests.o
 	$(CXX) -o $@ $< $(LIBS)
 
 subfield_tests.o : ../subfield.hpp 
